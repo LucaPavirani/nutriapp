@@ -36,6 +36,13 @@ This guide explains how to deploy the NutriApp backend to Vercel.
    Make sure to set the following environment variable in your Vercel project settings:
    
    - `DATABASE_URL`: Your PostgreSQL connection string
+   
+   For local development, create a `.env` file in the backend directory with:
+   ```
+   DATABASE_URL=your_postgresql_connection_string
+   ```
+   
+   Note: The `.env` file is excluded from Git via `.gitignore` for security reasons.
 
 ## Project Structure
 
