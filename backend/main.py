@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from typing import Optional
 from contextlib import asynccontextmanager
+from datetime import datetime
 import uvicorn
 
 from models import (
@@ -16,6 +18,7 @@ from database import (
     create_paziente, update_paziente, delete_paziente, create_pazienti_table,
     get_dieta_by_paziente_id, update_dieta_by_paziente_id, add_alimento_to_pasto
 )
+from document_utils import create_diet_document
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,9 +41,11 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    # For development, allow all origins
+    # For production, replace with specific origins like ["https://yourdomain.com"]
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -503,6 +508,36 @@ async def add_alimento_to_paziente_pasto(
                 detail=f"Paziente con ID {paziente_id} non trovato"
             )
         
+        # Validate alimento_data
+        required_fields = ["id", "nome", "quantita", "unita", "kcal", "proteine", "lipidi", "carboidrati", "fibre"]
+        missing_fields = [field for field in required_fields if field not in alimento_data]
+        
+        if missing_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Campi obbligatori mancanti nei dati dell'alimento: {', '.join(missing_fields)}"
+            )
+        
+        # Validate numeric fields
+        numeric_fields = ["quantita", "kcal", "proteine", "lipidi", "carboidrati", "fibre"]
+        for field in numeric_fields:
+            try:
+                # Check if field is None or empty
+                if alimento_data[field] is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Il campo '{field}' non può essere vuoto"
+                    )
+                
+                value = float(alimento_data[field])
+                # Update with the converted float value
+                alimento_data[field] = value
+            except (ValueError, TypeError):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Il campo '{field}' deve essere un numero valido"
+                )
+        
         # Add alimento to pasto
         updated_dieta = add_alimento_to_pasto(paziente_id, pasto, alimento_data)
         
@@ -533,11 +568,72 @@ async def health_check():
         # Test database connection
         get_total_count()
         get_pazienti_total_count()
-        return {"status": "healthy", "database": "connected", "tables": ["alimenti", "pazienti"]}
+        return {
+            "status": "healthy", 
+            "database": "connected", 
+            "tables": ["alimenti", "pazienti"],
+            "timestamp": datetime.now().isoformat()
+        }
+    except ConnectionError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Database connection error: {str(e)}"
+        )
     except Exception as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Service unhealthy: {str(e)}"
+            detail=f"Service unhealthy: {type(e).__name__} - {str(e)}"
+        )
+
+# Export diet to Word document
+@app.get("/pazienti/{paziente_id}/dieta/export")
+async def export_diet_to_word(paziente_id: int):
+    """
+    Export a patient's diet to a Word document.
+    
+    Args:
+        paziente_id: ID of the patient
+        
+    Returns:
+        Word document as a downloadable file
+    """
+    try:
+        # First check if paziente exists
+        paziente_data = get_paziente_by_id(paziente_id)
+        
+        if not paziente_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Paziente con ID {paziente_id} non trovato"
+            )
+        
+        # Get diet data
+        dieta_data = get_dieta_by_paziente_id(paziente_id)
+        
+        if not dieta_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Dieta non trovata per il paziente con ID {paziente_id}"
+            )
+        
+        # Generate Word document
+        doc_stream = create_diet_document(paziente_data, dieta_data)
+        
+        # Return document as downloadable file
+        filename = f"dieta_{paziente_data['nome']}_{paziente_data['cognome']}.docx"
+        
+        return StreamingResponse(
+            doc_stream,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Errore nell'esportazione della dieta: {str(e)}"
         )
 
 if __name__ == "__main__":

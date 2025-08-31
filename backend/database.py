@@ -7,9 +7,15 @@ def get_db_connection():
     try:
         conn = psycopg2.connect(DATABASE_URL)
         return conn
+    except psycopg2.OperationalError as e:
+        print(f"Database connection error: {e}")
+        # Add more detailed error message
+        error_msg = f"Failed to connect to database. Please check your database credentials and network connection. Error: {e}"
+        raise ConnectionError(error_msg) from e
     except Exception as e:
-        print(f"Error connecting to database: {e}")
-        raise e
+        print(f"Unexpected error connecting to database: {e}")
+        error_msg = f"Unexpected database error: {type(e).__name__} - {str(e)}"
+        raise ConnectionError(error_msg) from e
 
 def create_pazienti_table():
     """Create the pazienti table if it doesn't exist"""
@@ -738,11 +744,11 @@ def add_alimento_to_pasto(paziente_id: int, pasto_name: str, alimento_data: dict
         current_dieta[pasto_name]["alimenti"].append(alimento_data)
         
         # Recalculate totals for this pasto
-        totale_kcal = sum(alimento["kcal"] for alimento in current_dieta[pasto_name]["alimenti"])
-        totale_proteine = sum(alimento["proteine"] for alimento in current_dieta[pasto_name]["alimenti"])
-        totale_lipidi = sum(alimento["lipidi"] for alimento in current_dieta[pasto_name]["alimenti"])
-        totale_carboidrati = sum(alimento["carboidrati"] for alimento in current_dieta[pasto_name]["alimenti"])
-        totale_fibre = sum(alimento["fibre"] for alimento in current_dieta[pasto_name]["alimenti"])
+        totale_kcal = sum(alimento["kcal"] or 0 for alimento in current_dieta[pasto_name]["alimenti"])
+        totale_proteine = sum(alimento["proteine"] or 0 for alimento in current_dieta[pasto_name]["alimenti"])
+        totale_lipidi = sum(alimento["lipidi"] or 0 for alimento in current_dieta[pasto_name]["alimenti"])
+        totale_carboidrati = sum(alimento["carboidrati"] or 0 for alimento in current_dieta[pasto_name]["alimenti"])
+        totale_fibre = sum(alimento["fibre"] or 0 for alimento in current_dieta[pasto_name]["alimenti"])
         
         current_dieta[pasto_name]["totale_kcal"] = totale_kcal
         current_dieta[pasto_name]["totale_proteine"] = totale_proteine

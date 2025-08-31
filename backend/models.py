@@ -148,6 +148,7 @@ class Dieta(BaseModel):
     merenda: Pasto
     cena: Pasto
     totale_giornaliero: TotaleGiornaliero
+    note: Optional[str] = None
 
 # Pazienti models
 class Paziente(BaseModel):
