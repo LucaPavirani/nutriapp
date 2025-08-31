@@ -41,11 +41,14 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    # For development, allow all origins
-    # For production, replace with specific origins like ["https://yourdomain.com"]
-    allow_origins=["*"],
+    # Allow both development and production origins
+    allow_origins=[
+        "http://localhost:3000",
+        "https://nutriapp-frontend.vercel.app",
+        # Add your production frontend URL here
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
