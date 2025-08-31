@@ -45,7 +45,6 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://nutriapp-frontend.vercel.app",
-        "https://nutriapp-frontend.vercel.app",
         # Add your production frontend URL here
     ],
     allow_credentials=True,
