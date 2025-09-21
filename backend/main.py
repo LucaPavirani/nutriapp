@@ -625,7 +625,7 @@ async def export_diet_to_word(paziente_id: int, t: str = None):  # t parameter t
         doc_stream = create_diet_document(paziente_data, dieta_data)
         
         # Return document as downloadable file
-        filename = f"dieta_{paziente_data['nome']}_{paziente_data['cognome']}.docx"
+        filename = f"Piano_Nutrizionale_{paziente_data['nome']}_{paziente_data['cognome']}.docx"
         
         return StreamingResponse(
             doc_stream,
