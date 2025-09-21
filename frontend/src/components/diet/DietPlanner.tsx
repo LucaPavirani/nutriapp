@@ -7,6 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Dieta, Paziente, Pasto } from '../../types';
 import { pazientiApi, dietaApi } from '../../services/api';
 import MealSection from './MealSection';
+import ImportDietDialog from './ImportDietDialog';
 import { calculateDailyTotals, calculateMealTotals } from '../../utils/dietUtils';
 
 const DietPlanner: React.FC = () => {
@@ -17,6 +18,7 @@ const DietPlanner: React.FC = () => {
   const [patient, setPatient] = useState<Paziente | null>(null);
   const [diet, setDiet] = useState<Dieta | null>(null);
   const [notes, setNotes] = useState('');
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -113,6 +115,74 @@ const DietPlanner: React.FC = () => {
       setSaving(false);
     }
   };
+  
+  const handleImportMeal = (mealName: string, importedMeal: Pasto) => {
+    if (!diet) return;
+    
+    // Create updated diet with the imported meal
+    const updatedDiet = {
+      ...diet,
+      [mealName]: importedMeal
+    };
+    
+    // Calculate daily totals
+    const dailyTotals = calculateDailyTotals(updatedDiet);
+    updatedDiet.totale_giornaliero = dailyTotals;
+    
+    setDiet(updatedDiet);
+  };
+  
+  const handleImportFullDiet = (data: { pazienteId: number, mealName?: string, diet: Dieta | Pasto }) => {
+    if (!diet || !data.diet) return;
+    
+    // If we're importing a full diet
+    if ('colazione' in data.diet) {
+      // Create a new diet with imported data, ensuring correct structure
+      const importedDiet: Dieta = {
+        colazione: ensureValidMeal(data.diet.colazione),
+        spuntino: ensureValidMeal(data.diet.spuntino),
+        pranzo: ensureValidMeal(data.diet.pranzo),
+        merenda: ensureValidMeal(data.diet.merenda),
+        cena: ensureValidMeal(data.diet.cena),
+        totale_giornaliero: {
+          totale_kcal: typeof data.diet.totale_giornaliero?.totale_kcal === 'number' ? data.diet.totale_giornaliero.totale_kcal : 0,
+          totale_proteine: typeof data.diet.totale_giornaliero?.totale_proteine === 'number' ? data.diet.totale_giornaliero.totale_proteine : 0,
+          totale_lipidi: typeof data.diet.totale_giornaliero?.totale_lipidi === 'number' ? data.diet.totale_giornaliero.totale_lipidi : 0,
+          totale_carboidrati: typeof data.diet.totale_giornaliero?.totale_carboidrati === 'number' ? data.diet.totale_giornaliero.totale_carboidrati : 0,
+          totale_fibre: typeof data.diet.totale_giornaliero?.totale_fibre === 'number' ? data.diet.totale_giornaliero.totale_fibre : 0
+        },
+        note: notes || data.diet.note
+      };
+      
+      setDiet(importedDiet);
+    }
+    
+    setImportDialogOpen(false);
+  };
+  
+  // Helper function to ensure a meal has valid structure
+  const ensureValidMeal = (meal: any): Pasto => {
+    if (!meal || typeof meal !== 'object') {
+      return {
+        alimenti: [],
+        totale_kcal: 0,
+        totale_proteine: 0,
+        totale_lipidi: 0,
+        totale_carboidrati: 0,
+        totale_fibre: 0
+      };
+    }
+    
+    return {
+      alimenti: Array.isArray(meal.alimenti) ? meal.alimenti : [],
+      totale_kcal: typeof meal.totale_kcal === 'number' ? meal.totale_kcal : 0,
+      totale_proteine: typeof meal.totale_proteine === 'number' ? meal.totale_proteine : 0,
+      totale_lipidi: typeof meal.totale_lipidi === 'number' ? meal.totale_lipidi : 0,
+      totale_carboidrati: typeof meal.totale_carboidrati === 'number' ? meal.totale_carboidrati : 0,
+      totale_fibre: typeof meal.totale_fibre === 'number' ? meal.totale_fibre : 0,
+      note: meal.note || ''
+    };
+  };
 
   if (loading) {
     return (
@@ -164,6 +234,15 @@ const DietPlanner: React.FC = () => {
           <Button
             variant="outlined"
             color="secondary"
+            onClick={() => setImportDialogOpen(true)}
+            disabled={!diet}
+            sx={{ mr: 1 }}
+          >
+            Importa Dieta
+          </Button>
+          <Button
+            variant="outlined"
+            color="secondary"
             onClick={() => {
               if (id) {
                 const exportUrl = dietaApi.exportDietaToWord(parseInt(id));
@@ -190,35 +269,45 @@ const DietPlanner: React.FC = () => {
             title="Colazione" 
             mealName="colazione" 
             meal={diet.colazione} 
+            pazienteId={parseInt(id!)} 
             onUpdate={handleUpdateMeal} 
+            onImport={handleImportMeal}
           />
           
           <MealSection 
             title="Spuntino" 
             mealName="spuntino" 
             meal={diet.spuntino} 
+            pazienteId={parseInt(id!)} 
             onUpdate={handleUpdateMeal} 
+            onImport={handleImportMeal}
           />
           
           <MealSection 
             title="Pranzo" 
             mealName="pranzo" 
             meal={diet.pranzo} 
+            pazienteId={parseInt(id!)} 
             onUpdate={handleUpdateMeal} 
+            onImport={handleImportMeal}
           />
           
           <MealSection 
             title="Merenda" 
             mealName="merenda" 
             meal={diet.merenda} 
+            pazienteId={parseInt(id!)} 
             onUpdate={handleUpdateMeal} 
+            onImport={handleImportMeal}
           />
           
           <MealSection 
             title="Cena" 
             mealName="cena" 
             meal={diet.cena} 
+            pazienteId={parseInt(id!)} 
             onUpdate={handleUpdateMeal} 
+            onImport={handleImportMeal}
           />
 
           <Paper sx={{ p: 2, mb: 3 }}>
@@ -264,6 +353,14 @@ const DietPlanner: React.FC = () => {
               </Box>
             </Box>
           </Paper>
+          
+          {/* Import Full Diet Dialog */}
+          <ImportDietDialog
+            open={importDialogOpen}
+            onClose={() => setImportDialogOpen(false)}
+            currentPazienteId={parseInt(id!)}
+            onImport={handleImportFullDiet}
+          />
         </>
       )}
     </Box>
