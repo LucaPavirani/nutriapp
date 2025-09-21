@@ -496,7 +496,6 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
                       name="nome"
                       value={editingAlimento.nome}
                       onChange={handleEditingAlimentoChange}
-                      disabled
                     />
                     <TextField
                       sx={{ flex: '1 1 45%', minWidth: '250px' }}
