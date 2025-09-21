@@ -131,6 +131,7 @@ class Pasto(BaseModel):
     totale_lipidi: float
     totale_carboidrati: float
     totale_fibre: float
+    note: Optional[str] = None
 
 class TotaleGiornaliero(BaseModel):
     """Daily totals model"""

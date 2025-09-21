@@ -164,9 +164,19 @@ const DietPlanner: React.FC = () => {
           <Button
             variant="outlined"
             color="secondary"
-            href={dietaApi.exportDietaToWord(parseInt(id!))}
-            target="_blank"
-            download
+            onClick={() => {
+              if (id) {
+                const exportUrl = dietaApi.exportDietaToWord(parseInt(id));
+                
+                // Create a temporary link element and trigger the download
+                const link = document.createElement('a');
+                link.href = exportUrl;
+                link.download = `dieta_${patient?.nome}_${patient?.cognome}.docx`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+            }}
             disabled={!diet}
           >
             Esporta Word

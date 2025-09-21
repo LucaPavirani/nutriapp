@@ -441,25 +441,43 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
         </Table>
       </TableContainer>
 
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-        <Typography variant="subtitle1" sx={{ mr: 2 }}>
-          Totali:
-        </Typography>
-        <Typography variant="body2" sx={{ mr: 2 }}>
-          Kcal: {meal.totale_kcal.toFixed(1)}
-        </Typography>
-        <Typography variant="body2" sx={{ mr: 2 }}>
-          Proteine: {meal.totale_proteine.toFixed(1)}g
-        </Typography>
-        <Typography variant="body2" sx={{ mr: 2 }}>
-          Lipidi: {meal.totale_lipidi.toFixed(1)}g
-        </Typography>
-        <Typography variant="body2" sx={{ mr: 2 }}>
-          Carboidrati: {meal.totale_carboidrati.toFixed(1)}g
-        </Typography>
-        <Typography variant="body2">
-          Fibre: {meal.totale_fibre.toFixed(1)}g
-        </Typography>
+      <Box sx={{ mt: 2 }}>
+        <TextField
+          fullWidth
+          multiline
+          rows={2}
+          placeholder="Aggiungi note per questo pasto..."
+          label="Note"
+          value={meal.note || ''}
+          onChange={(e) => {
+            const updatedMeal = {
+              ...meal,
+              note: e.target.value
+            };
+            onUpdate(mealName, updatedMeal);
+          }}
+          sx={{ mb: 2 }}
+        />
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Typography variant="subtitle1" sx={{ mr: 2 }}>
+            Totali:
+          </Typography>
+          <Typography variant="body2" sx={{ mr: 2 }}>
+            Kcal: {meal.totale_kcal.toFixed(1)}
+          </Typography>
+          <Typography variant="body2" sx={{ mr: 2 }}>
+            Proteine: {meal.totale_proteine.toFixed(1)}g
+          </Typography>
+          <Typography variant="body2" sx={{ mr: 2 }}>
+            Lipidi: {meal.totale_lipidi.toFixed(1)}g
+          </Typography>
+          <Typography variant="body2" sx={{ mr: 2 }}>
+            Carboidrati: {meal.totale_carboidrati.toFixed(1)}g
+          </Typography>
+          <Typography variant="body2">
+            Fibre: {meal.totale_fibre.toFixed(1)}g
+          </Typography>
+        </Box>
       </Box>
 
       {/* Add Alimento Dialog */}

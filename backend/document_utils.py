@@ -89,6 +89,13 @@ def create_diet_document(paziente_data, dieta_data):
             
         doc.add_heading(meal_title, level=1)
         
+        # Add meal notes if available
+        if meal_data.get('note'):
+            note_paragraph = doc.add_paragraph()
+            note_paragraph.add_run("Note: ").bold = True
+            note_paragraph.add_run(meal_data['note'])
+            doc.add_paragraph()  # Add some space after the note
+        
         # Create table for food items
         if meal_data.get('alimenti') and len(meal_data['alimenti']) > 0:
             # Group alimenti by main and equivalents

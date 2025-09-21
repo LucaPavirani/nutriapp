@@ -87,7 +87,9 @@ export const dietaApi = {
   },
   
   exportDietaToWord: (pazienteId: number): string => {
-    return `${API_URL}/pazienti/${pazienteId}/dieta/export`;
+    // Add timestamp to prevent caching
+    const timestamp = new Date().getTime();
+    return `${API_URL}/pazienti/${pazienteId}/dieta/export?t=${timestamp}`;
   },
 };
 

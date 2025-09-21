@@ -51,6 +51,7 @@ export interface Pasto {
   totale_lipidi: number;
   totale_carboidrati: number;
   totale_fibre: number;
+  note?: string;
 }
 
 export interface TotaleGiornaliero {

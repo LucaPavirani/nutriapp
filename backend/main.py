@@ -591,7 +591,7 @@ async def health_check():
 
 # Export diet to Word document
 @app.get("/pazienti/{paziente_id}/dieta/export")
-async def export_diet_to_word(paziente_id: int):
+async def export_diet_to_word(paziente_id: int, t: str = None):  # t parameter to prevent caching
     """
     Export a patient's diet to a Word document.
     
@@ -619,6 +619,7 @@ async def export_diet_to_word(paziente_id: int):
                 status_code=404,
                 detail=f"Dieta non trovata per il paziente con ID {paziente_id}"
             )
+            
         
         # Generate Word document
         doc_stream = create_diet_document(paziente_data, dieta_data)
@@ -629,7 +630,12 @@ async def export_diet_to_word(paziente_id: int):
         return StreamingResponse(
             doc_stream,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
         )
         
     except HTTPException:

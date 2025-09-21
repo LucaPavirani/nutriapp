@@ -39,7 +39,8 @@ def create_pazienti_table():
                     "totale_proteine": 0,
                     "totale_lipidi": 0,
                     "totale_carboidrati": 0,
-                    "totale_fibre": 0
+                    "totale_fibre": 0,
+                    "note": null
                 },
                 "spuntino": {
                     "alimenti": [],
@@ -47,7 +48,8 @@ def create_pazienti_table():
                     "totale_proteine": 0,
                     "totale_lipidi": 0,
                     "totale_carboidrati": 0,
-                    "totale_fibre": 0
+                    "totale_fibre": 0,
+                    "note": null
                 },
                 "pranzo": {
                     "alimenti": [],
@@ -55,7 +57,8 @@ def create_pazienti_table():
                     "totale_proteine": 0,
                     "totale_lipidi": 0,
                     "totale_carboidrati": 0,
-                    "totale_fibre": 0
+                    "totale_fibre": 0,
+                    "note": null
                 },
                 "merenda": {
                     "alimenti": [],
@@ -63,7 +66,8 @@ def create_pazienti_table():
                     "totale_proteine": 0,
                     "totale_lipidi": 0,
                     "totale_carboidrati": 0,
-                    "totale_fibre": 0
+                    "totale_fibre": 0,
+                    "note": null
                 },
                 "cena": {
                     "alimenti": [],
@@ -71,7 +75,8 @@ def create_pazienti_table():
                     "totale_proteine": 0,
                     "totale_lipidi": 0,
                     "totale_carboidrati": 0,
-                    "totale_fibre": 0
+                    "totale_fibre": 0,
+                    "note": null
                 },
                 "totale_giornaliero": {
                     "totale_kcal": 0,
