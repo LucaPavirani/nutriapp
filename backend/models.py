@@ -233,6 +233,12 @@ class DietaResponse(BaseModel):
     data: Dict[str, Any]
     message: str
 
+class PazientiWithDieteResponse(BaseModel):
+    """Response model for patients with their diets"""
+    success: bool
+    data: list[Paziente]
+    message: str
+
 class ErrorResponse(BaseModel):
     """Error response model"""
     success: bool = False

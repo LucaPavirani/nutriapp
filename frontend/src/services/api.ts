@@ -47,6 +47,12 @@ export const pazientiApi = {
     return response.data;
   },
 
+  getPazientiWithDiete: async (limit = 100, offset = 0): Promise<PazienteResponse> => {
+    const params = { limit, offset };
+    const response = await api.get('/pazienti/diete', { params });
+    return response.data;
+  },
+
   createPaziente: async (paziente: PazienteCreate): Promise<Paziente> => {
     const response = await api.post('/pazienti', paziente);
     return response.data.data;

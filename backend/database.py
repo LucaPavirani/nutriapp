@@ -652,6 +652,52 @@ def get_pazienti_total_count(search: str = None):
         conn.close()
 
 # Diet functions
+def fetch_all_pazienti_with_diete(limit: int = 100, offset: int = 0):
+    """
+    Get all patients with their diets
+    
+    Args:
+        limit: Maximum number of results to return
+        offset: Number of results to skip
+        
+    Returns:
+        List of dictionaries containing patient data with diets
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    try:
+        # Query all patients with their diets
+        query = """
+        SELECT 
+            id,
+            nome,
+            cognome,
+            eta,
+            email,
+            telefono,
+            note,
+            dieta,
+            created_at,
+            updated_at
+        FROM pazienti
+        WHERE dieta IS NOT NULL
+        ORDER BY nome, cognome
+        LIMIT %s OFFSET %s
+        """
+        
+        cursor.execute(query, (limit, offset))
+        results = cursor.fetchall()
+        
+        return [dict(result) for result in results]
+            
+    except Exception as e:
+        print(f"Error getting patients with diets: {e}")
+        return []
+    finally:
+        cursor.close()
+        conn.close()
+
 def get_dieta_by_paziente_id(paziente_id: int):
     """
     Get diet data for a specific patient

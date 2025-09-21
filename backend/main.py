@@ -10,13 +10,14 @@ from models import (
     Alimento, AlimentoResponse, AlimentoCreate, AlimentoCreateResponse,
     Paziente, PazienteResponse, PazienteCreate, PazienteCreateResponse,
     PazienteUpdate, PazienteUpdateResponse, PazienteDeleteResponse,
-    DietaUpdate, DietaResponse, ErrorResponse
+    DietaUpdate, DietaResponse, ErrorResponse, PazientiWithDieteResponse
 )
 from database import (
     get_alimenti_data, get_alimento_by_id, get_total_count, create_alimento,
     get_pazienti_data, get_paziente_by_id, get_pazienti_total_count,
     create_paziente, update_paziente, delete_paziente, create_pazienti_table,
-    get_dieta_by_paziente_id, update_dieta_by_paziente_id, add_alimento_to_pasto
+    get_dieta_by_paziente_id, update_dieta_by_paziente_id, add_alimento_to_pasto,
+    fetch_all_pazienti_with_diete
 )
 from document_utils import create_diet_document
 
@@ -74,7 +75,8 @@ async def root():
             "diete": {
                 "GET": "/pazienti/{id}/dieta",
                 "PUT": "/pazienti/{id}/dieta",
-                "POST": "/pazienti/{id}/dieta/{pasto}/alimenti"
+                "POST": "/pazienti/{id}/dieta/{pasto}/alimenti",
+                "GET_all": "/pazienti/diete"
             },
             "docs": "/docs"
         }
@@ -201,6 +203,36 @@ async def get_alimento(alimento_id: int):
         )
 
 # Pazienti endpoints
+@app.get("/pazienti/diete", response_model=PazientiWithDieteResponse)
+async def get_all_pazienti_with_diete(
+    limit: int = Query(default=100, ge=1, le=1000, description="Numero massimo di risultati"),
+    offset: int = Query(default=0, ge=0, description="Numero di risultati da saltare")
+):
+    """
+    Recupera tutti i pazienti con le loro diete.
+    
+    - **limit**: Numero massimo di risultati (1-1000)
+    - **offset**: Numero di risultati da saltare per la paginazione
+    """
+    try:
+        # Get all patients with their diets
+        pazienti_with_diete = fetch_all_pazienti_with_diete(limit=limit, offset=offset)
+        
+        # Convert to Pydantic models
+        pazienti = [Paziente(**item) for item in pazienti_with_diete]
+        
+        return PazientiWithDieteResponse(
+            success=True,
+            data=pazienti,
+            message=f"Recuperati {len(pazienti)} pazienti con le loro diete"
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Errore nel recupero dei pazienti con diete: {str(e)}"
+        )
+
 @app.get("/pazienti", response_model=PazienteResponse)
 async def get_pazienti(
     limit: int = Query(default=100, ge=1, le=1000, description="Numero massimo di risultati"),
@@ -590,6 +622,7 @@ async def health_check():
         )
 
 # Export diet to Word document
+
 @app.get("/pazienti/{paziente_id}/dieta/export")
 async def export_diet_to_word(paziente_id: int, t: str = None):  # t parameter to prevent caching
     """
