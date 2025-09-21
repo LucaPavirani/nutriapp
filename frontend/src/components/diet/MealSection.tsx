@@ -9,26 +9,38 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  CompareArrows as CompareArrowsIcon
+  CompareArrows as CompareArrowsIcon,
+  ImportExport as ImportExportIcon
 } from '@mui/icons-material';
-import { Pasto, Alimento, AlimentoDieta } from '../../types';
+import { Pasto, Alimento, AlimentoDieta, Dieta } from '../../types';
 import AlimentiSearch from '../alimenti/AlimentiSearch';
+import ImportDietDialog from './ImportDietDialog';
 import { calculateEquivalentQuantity, convertToAlimentoDieta, calculateMealTotals } from '../../utils/dietUtils';
 
 interface MealSectionProps {
   title: string;
   mealName: string;
   meal: Pasto;
+  pazienteId: number;
   onUpdate: (mealName: string, updatedMeal: Pasto) => void;
+  onImport?: (mealName: string, importedMeal: Pasto) => void;
 }
 
-const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpdate }) => {
+const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, pazienteId, onUpdate, onImport }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [equivalentDialogOpen, setEquivalentDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedAlimento, setSelectedAlimento] = useState<Alimento | null>(null);
   const [quantity, setQuantity] = useState<number>(100);
   const [targetCalories, setTargetCalories] = useState<number>(100);
   const [editingAlimento, setEditingAlimento] = useState<AlimentoDieta | null>(null);
+  const [originalNutritionalValues, setOriginalNutritionalValues] = useState<{
+    kcalPer100g: number;
+    proteinePer100g: number;
+    lipidiPer100g: number;
+    carboidratiPer100g: number;
+    fibrePer100g: number;
+  } | null>(null);
   const [editIndex, setEditIndex] = useState<number>(-1);
   const [editingParentId, setEditingParentId] = useState<number | null>(null);
 
@@ -106,11 +118,11 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
 
   // Update an existing food item
   const handleUpdateAlimento = () => {
-    if (editingAlimento && editIndex >= 0) {
+    if (editingAlimento) {
       const updatedAlimenti = [...meal.alimenti];
       
       // If it's a main food item
-      if (editingAlimento.tipo === 'principale') {
+      if (editingAlimento.tipo === 'principale' && editIndex >= 0) {
         updatedAlimenti[editIndex] = {
           ...editingAlimento,
           // Preserve equivalents
@@ -118,14 +130,19 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
         };
       }
       // If it's an equivalent
-      else if (editingAlimento.parentId && editingParentId !== null) {
-        const parentIndex = updatedAlimenti.findIndex(item => item.id === editingParentId);
-        if (parentIndex !== -1 && updatedAlimenti[parentIndex].equivalenti) {
-          const eqIndex = updatedAlimenti[parentIndex].equivalenti!.findIndex(
-            eq => eq.id === editingAlimento.id
-          );
-          if (eqIndex !== -1) {
-            updatedAlimenti[parentIndex].equivalenti![eqIndex] = editingAlimento;
+      else if (editingAlimento.tipo === 'equivalente') {
+        // Find the parent food item by parentId
+        const parentId = editingAlimento.parentId || editingParentId;
+        if (parentId) {
+          const parentIndex = updatedAlimenti.findIndex(item => item.id === parentId);
+          if (parentIndex !== -1 && updatedAlimenti[parentIndex].equivalenti) {
+            // Find the equivalent by ID
+            const eqIndex = updatedAlimenti[parentIndex].equivalenti!.findIndex(
+              eq => eq.id === editingAlimento.id
+            );
+            if (eqIndex !== -1) {
+              updatedAlimenti[parentIndex].equivalenti![eqIndex] = editingAlimento;
+            }
           }
         }
       }
@@ -139,6 +156,7 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
       setEditingAlimento(null);
       setEditIndex(-1);
       setEditingParentId(null);
+      setOriginalNutritionalValues(null);
       setDialogOpen(false);
     }
   };
@@ -175,6 +193,18 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
   const handleEditAlimento = (alimento: AlimentoDieta, index: number) => {
     setEditingAlimento({...alimento});
     setEditIndex(index);
+    
+    // Store original nutritional values per 100g
+    if (alimento.quantita > 0) {
+      setOriginalNutritionalValues({
+        kcalPer100g: (alimento.kcal / alimento.quantita) * 100,
+        proteinePer100g: (alimento.proteine / alimento.quantita) * 100,
+        lipidiPer100g: (alimento.lipidi / alimento.quantita) * 100,
+        carboidratiPer100g: (alimento.carboidrati / alimento.quantita) * 100,
+        fibrePer100g: (alimento.fibre / alimento.quantita) * 100
+      });
+    }
+    
     setDialogOpen(true);
   };
 
@@ -186,6 +216,18 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
       const equivalent = meal.alimenti[parentIndex].equivalenti![eqIndex];
       setEditingAlimento({...equivalent});
       setEditingParentId(parentId);
+      
+      // Store original nutritional values per 100g
+      if (equivalent.quantita > 0) {
+        setOriginalNutritionalValues({
+          kcalPer100g: (equivalent.kcal / equivalent.quantita) * 100,
+          proteinePer100g: (equivalent.proteine / equivalent.quantita) * 100,
+          lipidiPer100g: (equivalent.lipidi / equivalent.quantita) * 100,
+          carboidratiPer100g: (equivalent.carboidrati / equivalent.quantita) * 100,
+          fibrePer100g: (equivalent.fibre / equivalent.quantita) * 100
+        });
+      }
+      
       setDialogOpen(true);
     }
   };
@@ -232,7 +274,7 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
-    if (!isNaN(value) && value > 0) {
+    if (!isNaN(value) && value >= 1) {
       setQuantity(value);
     }
   };
@@ -247,6 +289,16 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
   const handleEditingAlimentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (editingAlimento) {
       const { name, value } = e.target;
+      
+      // Handle nome field separately to allow mixed text and numbers
+      if (name === 'nome') {
+        setEditingAlimento({
+          ...editingAlimento,
+          nome: value
+        });
+        return;
+      }
+      
       let numValue = parseFloat(value);
       
       // For numerical fields, round to whole numbers
@@ -255,21 +307,40 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
       }
       
       // If quantity is changing, recalculate all nutritional values
-      if (name === 'quantita' && !isNaN(numValue) && numValue > 0) {
-        // Get the original values per 100g
-        const originalQuantity = editingAlimento.quantita;
-        const originalKcal = editingAlimento.kcal;
-        const originalProteine = editingAlimento.proteine;
-        const originalLipidi = editingAlimento.lipidi;
-        const originalCarboidrati = editingAlimento.carboidrati;
-        const originalFibre = editingAlimento.fibre;
+      if (name === 'quantita' && !isNaN(numValue)) {
+        // Enforce minimum value of 1
+        numValue = Math.max(1, numValue);
         
-        // Calculate values per 100g
-        const kcalPer100g = (originalKcal / originalQuantity) * 100;
-        const proteinePer100g = (originalProteine / originalQuantity) * 100;
-        const lipidiPer100g = (originalLipidi / originalQuantity) * 100;
-        const carboidratiPer100g = (originalCarboidrati / originalQuantity) * 100;
-        const fibrePer100g = (originalFibre / originalQuantity) * 100;
+        // Use stored original values per 100g if available
+        let kcalPer100g = 0;
+        let proteinePer100g = 0;
+        let lipidiPer100g = 0;
+        let carboidratiPer100g = 0;
+        let fibrePer100g = 0;
+        
+        if (originalNutritionalValues) {
+          // Use the stored original values
+          kcalPer100g = originalNutritionalValues.kcalPer100g;
+          proteinePer100g = originalNutritionalValues.proteinePer100g;
+          lipidiPer100g = originalNutritionalValues.lipidiPer100g;
+          carboidratiPer100g = originalNutritionalValues.carboidratiPer100g;
+          fibrePer100g = originalNutritionalValues.fibrePer100g;
+        } else {
+          // Calculate from current values as fallback
+          const originalQuantity = editingAlimento.quantita;
+          const originalKcal = editingAlimento.kcal;
+          const originalProteine = editingAlimento.proteine;
+          const originalLipidi = editingAlimento.lipidi;
+          const originalCarboidrati = editingAlimento.carboidrati;
+          const originalFibre = editingAlimento.fibre;
+          
+          // Calculate values per 100g (avoid division by zero)
+          kcalPer100g = originalQuantity > 0 ? (originalKcal / originalQuantity) * 100 : 0;
+          proteinePer100g = originalQuantity > 0 ? (originalProteine / originalQuantity) * 100 : 0;
+          lipidiPer100g = originalQuantity > 0 ? (originalLipidi / originalQuantity) * 100 : 0;
+          carboidratiPer100g = originalQuantity > 0 ? (originalCarboidrati / originalQuantity) * 100 : 0;
+          fibrePer100g = originalQuantity > 0 ? (originalFibre / originalQuantity) * 100 : 0;
+        }
         
         // Calculate new values based on new quantity
         const newFactor = numValue / 100;
@@ -279,15 +350,15 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
         const newCarboidrati = Math.round(carboidratiPer100g * newFactor);
         const newFibre = Math.round(fibrePer100g * newFactor);
         
-        // Update all values
+        // Update all values (ensure we use 0 instead of empty values)
         setEditingAlimento({
           ...editingAlimento,
           quantita: numValue,
-          kcal: newKcal,
-          proteine: newProteine,
-          lipidi: newLipidi,
-          carboidrati: newCarboidrati,
-          fibre: newFibre
+          kcal: newKcal || 0,
+          proteine: newProteine || 0,
+          lipidi: newLipidi || 0,
+          carboidrati: newCarboidrati || 0,
+          fibre: newFibre || 0
         });
       } else {
         // Just update the single field
@@ -302,22 +373,51 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
   const handleSelectAlimento = (alimento: Alimento) => {
     setSelectedAlimento(alimento);
   };
+  
+  const handleImportMeal = (data: { pazienteId: number, mealName?: string, diet: Dieta | Pasto }) => {
+    if (onImport && data.mealName === mealName && data.diet && 'alimenti' in data.diet) {
+      // Ensure the meal has the correct structure with alimenti as an array
+      const importedMeal: Pasto = {
+        ...data.diet,
+        alimenti: Array.isArray(data.diet.alimenti) ? data.diet.alimenti : [],
+        totale_kcal: typeof data.diet.totale_kcal === 'number' ? data.diet.totale_kcal : 0,
+        totale_proteine: typeof data.diet.totale_proteine === 'number' ? data.diet.totale_proteine : 0,
+        totale_lipidi: typeof data.diet.totale_lipidi === 'number' ? data.diet.totale_lipidi : 0,
+        totale_carboidrati: typeof data.diet.totale_carboidrati === 'number' ? data.diet.totale_carboidrati : 0,
+        totale_fibre: typeof data.diet.totale_fibre === 'number' ? data.diet.totale_fibre : 0
+      };
+      
+      onImport(mealName, importedMeal);
+    }
+  };
 
   return (
     <Paper sx={{ p: 2, mb: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">{title}</Typography>
-        <Button 
-          variant="outlined" 
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setEditingAlimento(null);
-            setEditIndex(-1);
-            setDialogOpen(true);
-          }}
-        >
-          Aggiungi Alimento
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {onImport && (
+            <Button 
+              variant="outlined" 
+              startIcon={<ImportExportIcon />}
+              onClick={() => setImportDialogOpen(true)}
+              color="secondary"
+            >
+              Importa
+            </Button>
+          )}
+          <Button 
+            variant="outlined" 
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setEditingAlimento(null);
+              setEditIndex(-1);
+              setDialogOpen(true);
+            }}
+          >
+            Aggiungi Alimento
+          </Button>
+        </Box>
       </Box>
 
       <TableContainer>
@@ -481,7 +581,14 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
       </Box>
 
       {/* Add Alimento Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="lg" fullWidth>
+      <Dialog 
+        open={dialogOpen} 
+        onClose={() => {
+          setDialogOpen(false);
+          setOriginalNutritionalValues(null);
+        }} 
+        maxWidth="lg" 
+        fullWidth>
         <DialogTitle>
           {editingAlimento ? 'Modifica Alimento' : 'Aggiungi Alimento'}
         </DialogTitle>
@@ -496,15 +603,17 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
                       name="nome"
                       value={editingAlimento.nome}
                       onChange={handleEditingAlimentoChange}
+                      inputProps={{ type: 'text' }}
                     />
                     <TextField
                       sx={{ flex: '1 1 45%', minWidth: '250px' }}
                       label="Quantità"
                       name="quantita"
                       type="number"
-                      value={Math.round(editingAlimento.quantita)}
+                      value={Math.max(1, Math.round(editingAlimento.quantita))}
                       onChange={handleEditingAlimentoChange}
-                      inputProps={{ step: 1 }}
+                      inputProps={{ step: 1, min: 1 }}
+                      helperText="Minimo 1g"
                     />
                   </Box>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
@@ -513,7 +622,7 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
                       label="Kcal"
                       name="kcal"
                       type="number"
-                      value={Math.round(editingAlimento.kcal)}
+                      value={Math.round(editingAlimento.kcal) || 0}
                       onChange={handleEditingAlimentoChange}
                       inputProps={{ step: 1 }}
                     />
@@ -522,7 +631,7 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
                       label="Proteine (g)"
                       name="proteine"
                       type="number"
-                      value={Math.round(editingAlimento.proteine)}
+                      value={Math.round(editingAlimento.proteine) || 0}
                       onChange={handleEditingAlimentoChange}
                       inputProps={{ step: 1 }}
                     />
@@ -531,7 +640,7 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
                       label="Lipidi (g)"
                       name="lipidi"
                       type="number"
-                      value={Math.round(editingAlimento.lipidi)}
+                      value={Math.round(editingAlimento.lipidi) || 0}
                       onChange={handleEditingAlimentoChange}
                       inputProps={{ step: 1 }}
                     />
@@ -542,7 +651,7 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
                       label="Carboidrati (g)"
                       name="carboidrati"
                       type="number"
-                      value={Math.round(editingAlimento.carboidrati)}
+                      value={Math.round(editingAlimento.carboidrati) || 0}
                       onChange={handleEditingAlimentoChange}
                       inputProps={{ step: 1 }}
                     />
@@ -551,7 +660,7 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
                       label="Fibre (g)"
                       name="fibre"
                       type="number"
-                      value={Math.round(editingAlimento.fibre)}
+                      value={Math.round(editingAlimento.fibre) || 0}
                       onChange={handleEditingAlimentoChange}
                       inputProps={{ step: 1 }}
                     />
@@ -572,10 +681,11 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
                     fullWidth
                     label="Quantità (g)"
                     type="number"
-                    value={quantity}
+                    value={Math.max(1, quantity)}
                     onChange={handleQuantityChange}
                     sx={{ mt: 1 }}
                     inputProps={{ min: 1, step: 1 }}
+                    helperText="Minimo 1g"
                   />
                 </Box>
               )}
@@ -583,11 +693,15 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Annulla</Button>
+          <Button onClick={() => {
+            setDialogOpen(false);
+            setOriginalNutritionalValues(null);
+          }}>Annulla</Button>
           <Button 
             onClick={editingAlimento ? handleUpdateAlimento : handleAddAlimento}
-            disabled={!editingAlimento && !selectedAlimento}
+            disabled={editingAlimento ? false : !selectedAlimento}
             variant="contained"
+            color={editingAlimento ? "primary" : "primary"}
           >
             {editingAlimento ? 'Aggiorna' : 'Aggiungi'}
           </Button>
@@ -644,17 +758,17 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
                     sx={{ flex: 1 }}
                     label="Quantità equivalente (g)"
                     type="number"
-                    value={Math.round(calculateEquivalentQuantity(selectedAlimento, targetCalories))}
+                    value={Math.max(1, Math.round(calculateEquivalentQuantity(selectedAlimento, targetCalories)))}
                     onChange={(e) => {
                       const newQuantity = parseFloat(e.target.value);
-                      if (!isNaN(newQuantity) && newQuantity > 0 && selectedAlimento.kcal) {
+                      if (!isNaN(newQuantity) && newQuantity >= 1 && selectedAlimento.kcal) {
                         // Calculate calories based on the new quantity
                         const newCalories = (newQuantity / 100) * selectedAlimento.kcal;
                         setTargetCalories(newCalories);
                       }
                     }}
                     inputProps={{ min: 1, step: 1 }}
-                    helperText="Puoi modificare la quantità suggerita"
+                    helperText="Minimo 1g - Puoi modificare la quantità suggerita"
                   />
                 )}
               </Box>
@@ -683,6 +797,17 @@ const MealSection: React.FC<MealSectionProps> = ({ title, mealName, meal, onUpda
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Import Dialog */}
+      {onImport && (
+        <ImportDietDialog
+          open={importDialogOpen}
+          onClose={() => setImportDialogOpen(false)}
+          currentPazienteId={pazienteId}
+          mealName={mealName}
+          onImport={handleImportMeal}
+        />
+      )}
     </Paper>
   );
 };
