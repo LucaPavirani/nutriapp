@@ -70,7 +70,8 @@ const DietPlanner: React.FC = () => {
     totale_proteine: 0,
     totale_lipidi: 0,
     totale_carboidrati: 0,
-    totale_fibre: 0
+    totale_fibre: 0,
+    note: ''
   });
 
   const handleUpdateMeal = (mealName: string, updatedMeal: Pasto) => {
@@ -84,6 +85,7 @@ const DietPlanner: React.FC = () => {
       ...diet,
       [mealName]: {
         alimenti: updatedMeal.alimenti,
+        note: updatedMeal.note,
         ...mealTotals
       }
     };
@@ -120,9 +122,13 @@ const DietPlanner: React.FC = () => {
     if (!diet) return;
     
     // Create updated diet with the imported meal
+    // Ensure the note property is preserved if it exists in the imported meal
     const updatedDiet = {
       ...diet,
-      [mealName]: importedMeal
+      [mealName]: {
+        ...importedMeal,
+        note: importedMeal.note || (diet[mealName as keyof Dieta] as Pasto).note
+      }
     };
     
     // Calculate daily totals
@@ -169,7 +175,8 @@ const DietPlanner: React.FC = () => {
         totale_proteine: 0,
         totale_lipidi: 0,
         totale_carboidrati: 0,
-        totale_fibre: 0
+        totale_fibre: 0,
+        note: ''
       };
     }
     
@@ -180,7 +187,7 @@ const DietPlanner: React.FC = () => {
       totale_lipidi: typeof meal.totale_lipidi === 'number' ? meal.totale_lipidi : 0,
       totale_carboidrati: typeof meal.totale_carboidrati === 'number' ? meal.totale_carboidrati : 0,
       totale_fibre: typeof meal.totale_fibre === 'number' ? meal.totale_fibre : 0,
-      note: meal.note || ''
+      note: typeof meal.note === 'string' ? meal.note : ''
     };
   };
 
